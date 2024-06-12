@@ -98,6 +98,8 @@
             modalPlan: document.querySelector('[data-modal="plan"]'),
             navbarDropdownBtn: document.querySelector('[data-dropdown-btn="subscription-info"]'),
             navbarBtn: document.querySelector('[data-navbar-btn="install"]'),
+            yearlySubsButton: document.querySelectorAll('[data-dropdown-subs="yearly"]'),
+            lifetimeSubsButton: document.querySelectorAll('[data-dropdown-subs="lifetime"]'),
         };
 
         const newSVG = `
@@ -108,6 +110,11 @@
         // Hide all dropdown prices initially
         elements.dropdownPrice.forEach((price) => price.classList.add('hide'));
         elements.dropdownSubsBtn.forEach((subs) => subs.classList.add('hide'));
+
+        // open first faq on load
+        document.querySelectorAll('[data-faq="list"]').forEach((faq) => {
+            faq.firstChild.click();
+        });
 
         // Event listeners
         if (elements.closeButton) {
@@ -125,7 +132,7 @@
                 navigator.clipboard.writeText(elements.checkoutUrl);
                 const originalContent = elements.copyButton.innerHTML;
                 elements.copyButton.innerHTML = `<div><div class="pricing-modal_button-icon is-2 w-embed">${newSVG}</div></div><div>link copied</div>`;
-                setTimeout(() => { elements.copyButton.innerHTML = originalContent }, 3000);
+                setTimeout(() => (elements.copyButton.innerHTML = originalContent), 3000);
             });
         }
 
@@ -137,17 +144,29 @@
 
             // Fetch site info and update DOM
             const siteInfo = await fetchSiteInfo(elements.jwtToken);
+            console.log(siteInfo);
             const paymentPlanPurchased = siteInfo.data.paymentInfo.planPeriod;
             const subscriptionExpiryDate = formatDate(siteInfo.data.paymentInfo.subscriptionEndDate);
 
             if (elements.siteName) {
-                elements.siteName.forEach((name) => { name.textContent = siteInfo.data.displayName });
+                elements.siteName.forEach((name) => {
+                    name.textContent = siteInfo.data.displayName;
+                });
             }
 
             if (paymentPlanPurchased === 'free') {
                 elements.dropdownBtnPlan.textContent = 'No Plan';
                 elements.dropdownPlan.textContent = 'Staging (free)';
             } else {
+                elements.freeButton.classList.add('hide');
+                if (paymentPlanPurchased === 'lifetime') elements.yearlyButton.classList.add('hide');
+                elements.yearlySubsButton.forEach((yearly) => {
+                    yearly.href = siteInfo.data.manageSubscriptionUrl;
+                });
+                elements.lifetimeSubsButton.forEach((lifetime) => {
+                    lifetime.href = siteInfo.data.paymentDetailsUrl;
+                });
+
                 elements.dropdownBtnPlan.textContent = `${paymentPlanPurchased} Plan`;
                 elements.dropdownPlan.textContent = paymentPlanPurchased;
                 document
@@ -157,8 +176,10 @@
                     });
             }
             document
-                .querySelector(`[data-dropdown-subs="${paymentPlanPurchased}"]`)
-                .classList.remove('hide');
+                .querySelectorAll(`[data-dropdown-subs="${paymentPlanPurchased}"]`)
+                .forEach((subs) => {
+                    subs.classList.remove('hide');
+                });
 
             elements.buyButtons.forEach((button) => {
                 const buttonText = button.querySelector('[data-btn="text"]');
@@ -200,7 +221,9 @@
                     if (planType && planPeriod) {
                         const checkoutInfo = await initiateCheckout(planType, planPeriod, elements.jwtToken);
                         console.log({ checkoutInfo });
-                        elements.siteName.forEach((name) => { name.textContent = siteInfo.data.displayName });
+                        elements.siteName.forEach((name) => {
+                            name.textContent = siteInfo.data.displayName;
+                        });
                         elements.modalPlan.textContent = `${planPeriod} Plan`;
                         document.querySelector(`[data-modal-price="${planPeriod}"]`).classList.remove('hide');
                         elements.checkoutUrl = checkoutInfo.data.redirectUrl;
@@ -224,6 +247,6 @@
     };
 
     // Ensure Webflow array exists on the window object
-    window.Webflow = [];
+    window.Webflow || = [];
     window.Webflow.push(main);
 })();
